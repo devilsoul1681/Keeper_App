@@ -38,7 +38,9 @@ var newuserc={
 };
 
 
-
+app.get("/:email",function(rq,rs){
+    rs.send(usernotfound);
+})
 
 app.get('/:email/:password',function(rq,rs){
     var email=rq.params.email;
