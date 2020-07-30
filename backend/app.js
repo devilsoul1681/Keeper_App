@@ -3,6 +3,13 @@ const bodyParser=require("body-parser");
 const mongoose=require("mongoose");
 const cors = require('cors'); // addition we make
 const fileUpload = require('express-fileupload'); //addition we make
+var validator = require("email-validator");//useless
+const bcrypt=require("bcrypt"); //this is for hashing of password
+const saltRounds=10;
+const https=require("https");
+
+
+
 
 const app=express();
 app.use(bodyParser.urlencoded({extended:true}));
@@ -37,6 +44,10 @@ var newuserc={
     email:"1"
 };
 
+var wrongemail={
+    email:"01"
+}
+
 
 app.get("/:email",function(rq,rs){
     rs.send(usernotfound);
@@ -54,11 +65,14 @@ app.get('/:email/:password',function(rq,rs){
           for(var i=0;i<data.length;i++){
               if(data[i].email===email){
                   s=s+1;
-                  if(data[i].password===password){
-                  rs.send(data[i])
-                  }else{
-                      rs.send(wrongpassword)
-                  }
+                  bcrypt.compare(password,data[i].password, function(err, result) {
+                    if(result===true){
+                        rs.send(data[i])
+                    }
+                    else{
+                        rs.send(wrongpassword)
+                    }
+                });
                   break;
               }
           }
@@ -81,29 +95,38 @@ app.post('/',function(rq,rs){
                 }
             }
             if(s===0){
-                const person= new Person({
-                    name:rq.body.name,
-                    email:rq.body.email,
-                    password:rq.body.password,
-                    content:[]
-                });
-                person.save()
-                console.log("hello")
-                rs.send(person);
-            }
+                 url="https://apilayer.net/api/check?access_key=dff0295c2565d143b155d3859abe1a12&email="+rq.body.email;
+                 https.get(url,function(response){
+                     response.on("data",function(data){
+                         const information=JSON.parse(data);
+                         if(information.free===true){
+                            bcrypt.hash(rq.body.password, saltRounds, function(err, hash) {
+                                const person= new Person({
+                                    name:rq.body.name,
+                                    email:rq.body.email,
+                                    password:hash,
+                                    content:[]
+                                });
+                                person.save()
+                                rs.send(person);   
+                            });
+                    }
+                    else{
+                        rs.send(wrongemail)
+                    }                         
+                         
+                     })
+                 })
         }
-    })
+    }})
 
 });
 
 
 
 app.post("/update/:email",function(rq,rs){
-    console.log(rq.body)
-    console.log(rq.params.email)
     Person.updateOne({email:rq.params.email},{content:rq.body},function(err){
         if(!err){
-            console.log("Successfully updated")
         }
     })
     
@@ -113,3 +136,7 @@ app.post("/update/:email",function(rq,rs){
 app.listen(5000,function(){
     console.log("server is running on port 5000");
 })
+
+
+
+//api_key=dff0295c2565d143b155d3859abe1a12
